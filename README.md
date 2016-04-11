@@ -6,8 +6,9 @@
 you will see the file on localhost:8080
 # to compile jsx
 `babel pagination.js -o pagination-comp.js;`
-# to deploy to appspot
-https://finra-1262.appspot.com/ 
+# to deploy: 
+on https://finra-1262.appspot.com/ 
+`mvn appengine:update`
 to make before deployment make `<application></application>` consistent with your app name
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
