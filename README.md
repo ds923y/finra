@@ -8,8 +8,8 @@ you will see the file on localhost:8080
 `babel pagination.js -o pagination-comp.js;`
 # to deploy: 
 on https://finra-1262.appspot.com/ run
-`mvn appengine:update`
-to make before deployment make `<application></application>` consistent with your app name
+`mvn appengine:update`.
+for your deployment make `<application>{}</application>` consistent with your app name and url https://{}.appspot.com/ 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <appengine-web-app xmlns="http://appengine.google.com/ns/1.0">
