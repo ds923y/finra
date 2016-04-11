@@ -1,14 +1,14 @@
 # finra
 # to clone this
-git clone https://github.com/ds923y/finra.git 
+`git clone https://github.com/ds923y/finra.git` 
 # to run this 
-mvn clean install; mvn appengine:devserver
+`mvn clean install; mvn appengine:devserver`
 you will see the file on localhost:8080
 # to compile jsx
-babel pagination.js -o pagination-comp.js;
+`babel pagination.js -o pagination-comp.js;`
 # to deploy to appspot
 https://finra-1262.appspot.com/ 
-make before deployment make <application></application> consistent with your app name
+to make before deployment make `<application></application>` consistent with your app name
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <appengine-web-app xmlns="http://appengine.google.com/ns/1.0">
