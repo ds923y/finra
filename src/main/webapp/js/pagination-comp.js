@@ -199,6 +199,7 @@ var PhoneNumberInput = React.createClass({
 
         return fmts == null ? { display: str, value: str } : fmts;
     }, disableEnter: function (keyevent) {
+        keyevent.preventDefault();
         return false;
     }, handleChange: function (event) {
         var fmted = this.getFmtedPhoneNum(event.target.value);
@@ -234,9 +235,7 @@ var PhoneNumberInput = React.createClass({
 
         return React.createElement(
             'form',
-            { className: 'form-inline', role: 'form', onSubmit: function () {
-                    return false;
-                } },
+            { className: 'form-inline', role: 'form', onSubmit: this.disableEnter },
             React.createElement(
                 'div',
                 { className: feedbackUI },

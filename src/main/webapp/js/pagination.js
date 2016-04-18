@@ -160,6 +160,7 @@ var PhoneNumberInput = React.createClass({
 
         return fmts == null ? {display:str, value:str} : fmts;
     },disableEnter: function(keyevent){
+        keyevent.preventDefault();
         return false;
     },handleChange: function(event) {
         var fmted = this.getFmtedPhoneNum(event.target.value);
@@ -194,7 +195,7 @@ var PhoneNumberInput = React.createClass({
             opts['disabled'] = 'disabled';
         }
 
-        return <form className="form-inline" role="form" onSubmit={function(){return false;}}><div className={feedbackUI}><div className="input-group">
+        return <form className="form-inline" role="form" onSubmit={this.disableEnter}><div className={feedbackUI}><div className="input-group">
             <input  type="tel" maxLength="10" className="form-control" placeholder="Phone Number" aria-describedby="basic-addon2" value={this.props.phone.phoneNumber} onChange={this.handleChange} {...opts}/>
             <span className={gliphiconUI}></span></div></div></form>;
     }
