@@ -4,6 +4,7 @@ import com.google.api.server.spi.config.Api;
 import com.google.api.server.spi.config.ApiMethod;
 import com.google.appengine.api.oauth.OAuthRequestException;
 import com.google.appengine.api.users.User;
+import com.google.appengine.repackaged.com.google.protobuf.ByteString;
 
 import java.util.ArrayList;
 
@@ -22,11 +23,14 @@ public class TelephoneAlphaNumerics {
 
 
 
-    public ArrayList<String> getNumbers(@Named("num") String num, @Named("id") Integer id, User s) throws Exception {
+    public OutputBean getNumbers(@Named("num") String num, @Named("id") Integer id, User s) throws Exception {
         if(s == null){
             throw new OAuthRequestException("not authorized");
         }
+
         num = filteredDigits(num);
+        int count = Tumbler.getCount(num);
+
         final int ITEMS_PER_PAGE = 10;
 
         String tblstr = new StringBuilder(num).reverse().toString();
@@ -39,7 +43,8 @@ public class TelephoneAlphaNumerics {
             toReturn.add(new StringBuilder(t.toString()).reverse().toString());
         } while (!t.toString().equals(tblstr) && i < ITEMS_PER_PAGE);
 
-        return toReturn;
+
+        return new OutputBean(toReturn, count, id, num);
     }
 
     private static String filteredDigits(String s) throws Exception {
@@ -58,21 +63,12 @@ public class TelephoneAlphaNumerics {
         return builder.toString();
     }
 
-    public HelloGreeting getCount(@Named("num") String num, User s) throws Exception {
-        if(s == null){
-            throw new OAuthRequestException("not authorized");
-        }
-        HelloGreeting g = new HelloGreeting();
-        num = filteredDigits(num);
-        g.setMessage(Integer.toString(Tumbler.getCount(num)));
-        return g;
-    }
 
 
-    @ApiMethod(name = "greetings.authed", path = "hellogreeting/authed")
+/*    @ApiMethod(name = "greetings.authed", path = "hellogreeting/authed")
     public HelloGreeting authedGreeting(User user) {
         //System.out.println(user);
         HelloGreeting response = new HelloGreeting("hello");//+ user.getEmail()
         return response;
-    }
+    }*/
 }

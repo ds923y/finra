@@ -23,18 +23,7 @@ server_ajax.signedIn = false;
 server_ajax.getNumbers = function (phonenumber, id, setter) {
     gapi.client.finra.telephoneAlphaNumerics.getNumbers({ 'num': phonenumber, 'id': id }).execute(function (resp) {
         if (!resp.code) {
-            setter(resp.items);
-        } else {
-            window.alert(resp.message);
-            //return 'error';
-        }
-    });
-};
-
-server_ajax.getCount = function (phonenumber, setter) {
-    gapi.client.finra.telephoneAlphaNumerics.getCount({ 'num': phonenumber }).execute(function (resp) {
-        if (!resp.code) {
-            setter(resp.message);
+            setter(resp.output, resp.combinations, resp.phoneNumber, resp.page);
         } else {
             window.alert(resp.message);
         }
@@ -55,9 +44,7 @@ var Pagination = React.createClass({
 
     getInitialState: function () {
         return {
-            startIndex: 1,
-            active: -1,
-            output: ""
+            startIndex: 1
         };
     },
     handleLeftArrow: function (event) {
@@ -71,9 +58,6 @@ var Pagination = React.createClass({
             var sr = this.state.startIndex + 1;
             this.setState({ startIndex: sr });
         }
-    },
-    changeActive: function (newActive) {
-        this.setState({ active: newActive });
     },
     getfmtedtext: function (str) {
         str = str.replace(/\D/g, '');
@@ -93,47 +77,11 @@ var Pagination = React.createClass({
         }, null);
 
         return fmts == null ? { display: str, value: str } : fmts;
-        //return fmts.filter(function(value){
-        //    return value != null;
-        //});
-    },
-    getFmtText: function (str) {
-        //str = str.replace(/\D/g,'');
-        var fmts = [/^(\w{3})(\w{3})(\w{4})$/g, /^(\w{3})(\w{4})$/g];
-        fmts = fmts.reduce(function (prev, elm) {
-            var v = elm.exec(str);
-
-            if (v == null) {
-                return prev;
-            }
-            switch (v.length) {
-                case 3:
-                    return v[1] + ' ' + v[2];
-                case 4:
-                    return v[1] + ' ' + v[2] + ' ' + v[3];
-            }
-        }, null);
-
-        return fmts == null ? str : fmts;
-    },
-    changeOutput: function (output) {
-
-        var fmt = this.getFmtText;
-        var out = output.map(function (obj, index) {
-            return React.createElement(
-                'div',
-                { key: index },
-                fmt(obj)
-            );
-        });
-        this.setState({ output: out });
     },
     componentWillReceiveProps: function (nextProps) {
         if (this.props.page.combinations == 0) {
             this.setState({
-                startIndex: 1,
-                active: -1,
-                output: ""
+                startIndex: 1
             });
         }
     },
@@ -149,7 +97,7 @@ var Pagination = React.createClass({
         var i = startIdx;
         rows.push(React.createElement(LeftArrow, { key: -1, decrement: this.handleLeftArrow }));
         for (; i < endIdx; i++) {
-            var content = { 'page_num': i, 'active': this.state.active, 'changeActive': this.changeActive, 'changeOutput': this.changeOutput, 'number': this.props.page.phoneNumber };
+            var content = { 'page_num': i, 'active': this.props.page.active, 'indexChanged': this.props.page.indexChanged, 'number': this.props.page.phoneNumber };
             rows.push(React.createElement(NumberItem, { key: i, pagination: content }));
         }
         rows.push(React.createElement(RightArrow, { key: i, increment: this.handleRightArrow }));
@@ -159,9 +107,8 @@ var Pagination = React.createClass({
             React.createElement(
                 'div',
                 null,
-                this.state.output
+                this.props.page.output
             ),
-            ' ',
             React.createElement(
                 'nav',
                 null,
@@ -170,8 +117,7 @@ var Pagination = React.createClass({
                     { className: 'pagination' },
                     rows
                 )
-            ),
-            ' '
+            )
         );
     }
 });
@@ -212,13 +158,13 @@ var NumberItem = React.createClass({
     displayName: 'NumberItem',
 
     handleNumberClick: function (event) {
-        server_ajax.getNumbers(this.props.pagination.number, event.currentTarget.dataset.id - 1, this.props.pagination.changeOutput);
-        var sr = event.currentTarget.dataset.id;
-        this.props.pagination.changeActive(sr);
+        var sr = event.currentTarget.dataset.id - 1;
+        //this.props.pagination.changeActive(sr);
+        this.props.pagination.indexChanged(this.props.pagination.number, true, sr);
     }, //5129716510
     render: function () {
         var pg = this.props.pagination.page_num;
-        var clName = this.props.pagination.active == pg ? "page-item active" : "page-item";
+        var clName = this.props.pagination.active + 1 == pg ? "page-item active" : "page-item";
         return React.createElement(
             'li',
             { className: clName, 'data-id': pg, onClick: this.handleNumberClick },
@@ -234,7 +180,7 @@ var NumberItem = React.createClass({
 var PhoneNumberInput = React.createClass({
     displayName: 'PhoneNumberInput',
 
-    getfmtedtext: function (str) {
+    getFmtedPhoneNum: function (str) {
         str = str.replace(/\D/g, '');
         var fmts = [/^(\d{3})(\d{3})(\d{4})$/g, /^(\d{3})(\d{4})$/g];
         fmts = fmts.reduce(function (prev, elm) {
@@ -252,29 +198,24 @@ var PhoneNumberInput = React.createClass({
         }, null);
 
         return fmts == null ? { display: str, value: str } : fmts;
-        //return fmts.filter(function(value){
-        //    return value != null;
-        //});
-    },
-    handleChange: function (event) {
-
-        var fmted = this.getfmtedtext(event.target.value);
+    }, disableEnter: function (keyevent) {
+        return false;
+    }, handleChange: function (event) {
+        var fmted = this.getFmtedPhoneNum(event.target.value);
         try {
             var phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
             var phoneNumber = phoneUtil.parse(fmted.value, 'US');
             if (fmted.value.length == 7 && phoneUtil.isPossibleNumber(phoneNumber) || fmted.value.length == 10 && phoneUtil.isValidNumber(phoneNumber)) {
-                this.props.phone.numberCng(fmted.display, true);
+                this.props.phone.numberCng(fmted.display, true, 0);
             } else {
-                this.props.phone.numberCng(fmted.display, false);
+                this.props.phone.numberCng(fmted.display, false, 0);
             }
         } catch (err) {
-            this.props.phone.numberCng(fmted.display, false);
+            this.props.phone.numberCng(fmted.display, false, 0);
         }
-    },
-    render: function () {
+    }, render: function () {
         var gliphiconUI = '';
         var feedbackUI = '';
-
         if (this.props.phone.phoneNumber == "") {
             gliphiconUI = '';
             feedbackUI = '';
@@ -291,10 +232,11 @@ var PhoneNumberInput = React.createClass({
             opts['disabled'] = 'disabled';
         }
 
-        //var validation_ui = (this.props.phone.valid);
         return React.createElement(
             'form',
-            { className: 'form-inline', role: 'form' },
+            { className: 'form-inline', role: 'form', onSubmit: function () {
+                    return false;
+                } },
             React.createElement(
                 'div',
                 { className: feedbackUI },
@@ -306,7 +248,6 @@ var PhoneNumberInput = React.createClass({
                 )
             )
         );
-        //return <input type="text" value={this.state.value} onChange={this.handleChange}/>;
     }
 });
 
@@ -317,7 +258,11 @@ var FormPages = React.createClass({
         return { signedIn: false,
             phoneNumber: '',
             valid: false,
-            combinations: 0 };
+            combinations: 0,
+            output: '',
+            active: 0,
+            waiting: false,
+            timer: null };
     },
     userAuthed: function () {
         var self = this;
@@ -339,29 +284,72 @@ var FormPages = React.createClass({
             this.setState({ signedIn: false,
                 phoneNumber: '',
                 valid: false,
-                combinations: 0 });
+                combinations: 0,
+                output: '',
+                active: 0,
+                waiting: false,
+                timer: null });
         }
     },
+    getFmtOutput: function (str) {
+        //str = str.replace(/\D/g,'');
+        var fmts = [/^(\w{3})(\w{3})(\w{4})$/g, /^(\w{3})(\w{4})$/g];
+        fmts = fmts.reduce(function (prev, elm) {
+            var v = elm.exec(str);
 
-    componentDidMount: function () {
+            if (v == null) {
+                return prev;
+            }
+            switch (v.length) {
+                case 3:
+                    return v[1] + ' ' + v[2];
+                case 4:
+                    return v[1] + ' ' + v[2] + ' ' + v[3];
+            }
+        }, null);
+
+        return fmts == null ? str : fmts;
+    },
+    changeOutput: function (output, newval, phoneNumber, page) {
+        if (phoneNumber == this.state.phoneNumber.replace(/\D/g, '') && page == this.state.active) {
+            var fmt = this.getFmtOutput;
+            var out = output.map(function (obj, index) {
+                return React.createElement(
+                    'div',
+                    { key: index },
+                    fmt(obj)
+                );
+            });
+
+            this.setState({ output: out, combinations: newval });
+            clearTimeout(this.state.timer);
+            this.setState({ waiting: false });
+        }
+    }, componentDidMount: function () {
         this.signin(true, this.userAuthed);
         return {};
     },
-    changeCombinations: function (newval) {
-        this.setState({ combinations: newval });
-    },
-    handleChange: function (phoneNumber, newState) {
+    handleNumberIndexChange: function (phoneNumber, newState, active) {
         this.setState({ valid: newState, phoneNumber: phoneNumber });
         if (newState) {
-            server_ajax.getCount(phoneNumber, this.changeCombinations);
+            this.setState({ active: active });
+            //server_ajax.getCount(phoneNumber, this.changeCombinations);
+            var str = phoneNumber.replace(/\D/g, '');
+            server_ajax.getNumbers(str, active, this.changeOutput);
+            var self = this;
+            var timer = setTimeout(function () {
+                self.setState({ waiting: true });
+            }, 100);
+            this.setState({ timer: timer });
         } else {
-            this.setState({ combinations: 0 });
+            this.setState({ combinations: 0, output: '' });
         }
     },
     render: function () {
-        var phoneprops = { 'phoneNumber': this.state.phoneNumber, 'valid': this.state.valid, 'numberCng': this.handleChange, 'signedIn': this.state.signedIn };
+        var phoneprops = { 'phoneNumber': this.state.phoneNumber, 'valid': this.state.valid, 'numberCng': this.handleNumberIndexChange, 'signedIn': this.state.signedIn, active: this.state.active };
         var totalPages = this.state.combinations / 10 + Math.sign(this.state.combinations % 10);
-        var paginationprops = { numpages: totalPages, phoneNumber: this.state.phoneNumber, combinations: this.state.combinations };
+        var paginationprops = { numpages: totalPages, phoneNumber: this.state.phoneNumber,
+            combinations: this.state.combinations, output: this.state.output, indexChanged: this.handleNumberIndexChange, active: this.state.active };
         var paginationCount = this.state.combinations > 0 ? React.createElement(
             'p',
             null,
@@ -369,6 +357,7 @@ var FormPages = React.createClass({
             this.state.combinations
         ) : React.createElement('div', null);
         var authText = this.state.signedIn ? 'Sign Out' : 'Sign In';
+        var spinnerSignal = this.state.waiting ? "fa fa-refresh fa-spin" : "";
 
         return React.createElement(
             'div',
@@ -385,7 +374,13 @@ var FormPages = React.createClass({
                         React.createElement(
                             'div',
                             { className: 'panel-title' },
-                            'Telephone Alpha-Numerics'
+                            React.createElement(
+                                'span',
+                                null,
+                                'Telephone Alpha-Numerics',
+                                '\u00a0'
+                            ),
+                            React.createElement('i', { className: spinnerSignal })
                         )
                     ),
                     React.createElement(
