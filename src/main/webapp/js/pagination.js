@@ -288,6 +288,8 @@ var FormPages = React.createClass({
             this.setState({timer:timer});
         }else{
             this.setState({combinations:0, output:''});
+            clearTimeout(this.state.timer);
+            this.setState({waiting:false});
         }
     },
     render:function(){
